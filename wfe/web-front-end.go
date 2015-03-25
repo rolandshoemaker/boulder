@@ -9,18 +9,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 
 	"github.com/letsencrypt/boulder/core"
 	"github.com/letsencrypt/boulder/jose"
+	blog "github.com/letsencrypt/boulder/log"
 )
 
 type WebFrontEndImpl struct {
-	RA core.RegistrationAuthority
-	SA core.StorageGetter
+	RA  core.RegistrationAuthority
+	SA  core.StorageGetter
+	log *blog.AuditLogger
 
 	// URL configuration parameters
 	NewReg    string
@@ -33,8 +34,9 @@ type WebFrontEndImpl struct {
 	SubscriberAgreementURL string
 }
 
-func NewWebFrontEndImpl() WebFrontEndImpl {
-	return WebFrontEndImpl{}
+func NewWebFrontEndImpl(logger *blog.AuditLogger) WebFrontEndImpl {
+	logger.Notice("Web Front End Starting")
+	return WebFrontEndImpl{log: logger}
 }
 
 // Method implementations
@@ -186,7 +188,7 @@ func (wfe *WebFrontEndImpl) NewAuthorization(response http.ResponseWriter, reque
 	response.Header().Add("Content-Type", "application/json")
 	response.WriteHeader(http.StatusCreated)
 	if _, err = response.Write(responseBody); err != nil {
-		log.Printf("Could not write response: %s", err)
+		wfe.log.Warning(fmt.Sprintf("Could not write response: %s", err))
 	}
 }
 
@@ -211,6 +213,8 @@ func (wfe *WebFrontEndImpl) NewCertificate(response http.ResponseWriter, request
 		return
 	}
 
+	wfe.log.Notice(fmt.Sprintf("Asked to create new certificate: %v %v", init, key))
+
 	// Create new certificate and return
 	cert, err := wfe.RA.NewCertificate(init, key)
 	if err != nil {
@@ -233,7 +237,7 @@ func (wfe *WebFrontEndImpl) NewCertificate(response http.ResponseWriter, request
 	response.Header().Add("Content-Type", "application/pkix-cert")
 	response.WriteHeader(http.StatusCreated)
 	if _, err = response.Write(cert.DER); err != nil {
-		log.Printf("Could not write response: %s", err)
+		wfe.log.Warning(fmt.Sprintf("Could not write response: %s", err))
 	}
 }
 
@@ -296,7 +300,7 @@ func (wfe *WebFrontEndImpl) Challenge(authz core.Authorization, response http.Re
 	  response.Header().Add("Content-Type", "application/json")
 		response.WriteHeader(http.StatusAccepted)
 		if _, err = response.Write(jsonReply); err != nil {
-			log.Printf("Could not write response: %s", err)
+			wfe.log.Warning(fmt.Sprintf("Could not write response: %s", err))
 		}
 
 	}
@@ -400,7 +404,7 @@ func (wfe *WebFrontEndImpl) Authorization(response http.ResponseWriter, request 
 	  response.Header().Add("Content-Type", "application/json")
 		response.WriteHeader(http.StatusOK)
 		if _, err = response.Write(jsonReply); err != nil {
-			log.Printf("Could not write response: %s", err)
+			wfe.log.Warning(fmt.Sprintf("Could not write response: %s", err))
 		}
 	}
 }
@@ -413,6 +417,8 @@ func (wfe *WebFrontEndImpl) Certificate(response http.ResponseWriter, request *h
 
 	case "GET":
 		id := parseIDFromPath(request.URL.Path)
+		wfe.log.Notice(fmt.Sprintf("Requested certificate ID %s", id))
+
 		cert, err := wfe.SA.GetCertificate(id)
 		if err != nil {
 			sendError(response, "Not found", http.StatusNotFound)
@@ -424,7 +430,7 @@ func (wfe *WebFrontEndImpl) Certificate(response http.ResponseWriter, request *h
 	  response.Header().Add("Content-Type", "application/pkix-cert")
 		response.WriteHeader(http.StatusOK)
 		if _, err = response.Write(cert); err != nil {
-			log.Printf("Could not write response: %s", err)
+			wfe.log.Warning(fmt.Sprintf("Could not write response: %s", err))
 		}
 
 	case "POST":
