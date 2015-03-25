@@ -23,12 +23,6 @@ func AssertNotError(t *testing.T, err error, message string) {
 	}
 }
 
-func AssertError(t *testing.T, err error, message string) {
-	if err == nil {
-		t.Error(message, err)
-	}
-}
-
 func AssertEquals(t *testing.T, one string, two string) {
 	if one != two {
 		t.Errorf("String [%s] != [%s]", one, two)

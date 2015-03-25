@@ -14,13 +14,11 @@ import (
 	"fmt"
 
 	"github.com/letsencrypt/boulder/core"
-	blog "github.com/letsencrypt/boulder/log"
 )
 
 type SQLStorageAuthority struct {
 	db     *sql.DB
 	bucket map[string]interface{} // XXX included only for backward compat
-	log    *blog.AuditLogger
 }
 
 func digest256(data []byte) []byte {
@@ -29,9 +27,7 @@ func digest256(data []byte) []byte {
 	return d.Sum(nil)
 }
 
-func NewSQLStorageAuthority(logger *blog.AuditLogger, driver string, name string) (ssa *SQLStorageAuthority, err error) {
-	logger.Notice("Storage Authority Starting")
-
+func NewSQLStorageAuthority(driver string, name string) (ssa *SQLStorageAuthority, err error) {
 	db, err := sql.Open(driver, name)
 	if err != nil {
 		return
@@ -42,7 +38,6 @@ func NewSQLStorageAuthority(logger *blog.AuditLogger, driver string, name string
 
 	ssa = &SQLStorageAuthority{
 		db:     db,
-		log:    logger,
 		bucket: make(map[string]interface{}),
 	}
 	return

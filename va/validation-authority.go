@@ -12,21 +12,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/letsencrypt/boulder/core"
-	blog "github.com/letsencrypt/boulder/log"
 )
 
 type ValidationAuthorityImpl struct {
-	RA  core.RegistrationAuthority
-	log *blog.AuditLogger
+	RA core.RegistrationAuthority
 }
 
-func NewValidationAuthorityImpl(logger *blog.AuditLogger) ValidationAuthorityImpl {
-	logger.Notice("Validation Authority Starting")
-	return ValidationAuthorityImpl{log: logger}
+func NewValidationAuthorityImpl() ValidationAuthorityImpl {
+	return ValidationAuthorityImpl{}
 }
 
 // Validation methods
@@ -125,6 +123,31 @@ func (va ValidationAuthorityImpl) validateDvsni(identifier core.AcmeIdentifier, 
 	return
 }
 
+func (va ValidationAuthorityImpl) validateDNS(identifier core.AcmeIdentifier, input core.Challenge) (challenge core.Challenge) {
+	challenge = input
+
+	const DNSPrefix = "_acme-challenge"
+
+	challengeSubdomain := fmt.Sprintf("%s.%s", DNSPrefix, identifier)
+	txts, err := net.LookupTXT(challengeSubdomain)
+
+	if err != nil {
+		challenge.Status = core.StatusInvalid
+		return
+	}
+
+	byteToken := []byte(challenge.token)
+	for _, element := range txts {
+		if subtle.ConstantTimeCompare([]byte(element), byteToken) == 1 {
+			challenge.Status = core.StatusValid
+			return
+		}
+	}
+
+	challenge.Status = core.StatusInvalid
+	return
+}
+
 // Overall validation process
 
 func (va ValidationAuthorityImpl) validate(authz core.Authorization) {
@@ -138,10 +161,11 @@ func (va ValidationAuthorityImpl) validate(authz core.Authorization) {
 		case core.ChallengeTypeDVSNI:
 			authz.Challenges[i] = va.validateDvsni(authz.Identifier, challenge)
 			break
+		case core.ChallengeTypeDNS:
+			authz.Challenges[i] = va.validateDNS(authz.Identifier, challenge)
+			break
 		}
 	}
-
-	va.log.Notice(fmt.Sprintf("Validations: %v", authz))
 
 	va.RA.OnValidationUpdate(authz)
 }

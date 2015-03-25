@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/letsencrypt/boulder/core"
-	blog "github.com/letsencrypt/boulder/log"
 	"github.com/letsencrypt/boulder/policy"
 
 	"github.com/cloudflare/cfssl/auth"
@@ -26,7 +25,6 @@ type CertificateAuthorityImpl struct {
 	Signer  signer.Signer
 	SA      core.StorageAuthority
 	PA      core.PolicyAuthority
-	log     *blog.AuditLogger
 }
 
 // NewCertificateAuthorityImpl creates a CA that talks to a remote CFSSL
@@ -35,9 +33,7 @@ type CertificateAuthorityImpl struct {
 // using CFSSL's authenticated signature scheme.  A CA created in this way
 // issues for a single profile on the remote signer, which is indicated
 // by name in this constructor.
-func NewCertificateAuthorityImpl(logger *blog.AuditLogger, hostport string, authKey string, profile string) (ca *CertificateAuthorityImpl, err error) {
-	logger.Notice("Certificate Authority Starting")
-
+func NewCertificateAuthorityImpl(hostport string, authKey string, profile string) (ca *CertificateAuthorityImpl, err error) {
 	// Create the remote signer
 	localProfile := config.SigningProfile{
 		Expiry:       time.Hour, // BOGUS: Required by CFSSL, but not used
@@ -55,9 +51,9 @@ func NewCertificateAuthorityImpl(logger *blog.AuditLogger, hostport string, auth
 		return
 	}
 
-	pa := policy.NewPolicyAuthorityImpl(logger)
+	pa := policy.NewPolicyAuthorityImpl()
 
-	ca = &CertificateAuthorityImpl{Signer: signer, profile: profile, PA: pa, log: logger}
+	ca = &CertificateAuthorityImpl{Signer: signer, profile: profile, PA: pa}
 	return
 }
 
@@ -72,7 +68,6 @@ func (ca *CertificateAuthorityImpl) IssueCertificate(csr x509.CertificateRequest
 		commonName = hostNames[0]
 	} else {
 		err = errors.New("Cannot issue a certificate without a hostname.")
-		ca.log.WarningErr(err)
 		return
 	}
 
@@ -83,14 +78,12 @@ func (ca *CertificateAuthorityImpl) IssueCertificate(csr x509.CertificateRequest
 	identifier := core.AcmeIdentifier{Type: core.IdentifierDNS, Value: commonName}
 	if err = ca.PA.WillingToIssue(identifier); err != nil {
 		err = errors.New("Policy forbids issuing for name " + commonName)
-		ca.log.AuditErr(err)
 		return
 	}
 	for _, name := range hostNames {
 		identifier = core.AcmeIdentifier{Type: core.IdentifierDNS, Value: name}
 		if err = ca.PA.WillingToIssue(identifier); err != nil {
 			err = errors.New("Policy forbids issuing for name " + name)
-			ca.log.AuditErr(err)
 			return
 		}
 	}
@@ -117,14 +110,12 @@ func (ca *CertificateAuthorityImpl) IssueCertificate(csr x509.CertificateRequest
 
 	if len(certPEM) == 0 {
 		err = errors.New("No certificate returned by server")
-		ca.log.WarningErr(err)
 		return
 	}
 
 	block, _ := pem.Decode(certPEM)
 	if block == nil || block.Type != "CERTIFICATE" {
 		err = errors.New("Invalid certificate value returned")
-		ca.log.WarningErr(err)
 		return
 	}
 	certDER := block.Bytes
