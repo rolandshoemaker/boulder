@@ -39,6 +39,57 @@ func NewWebFrontEndImpl(logger *blog.AuditLogger) WebFrontEndImpl {
 	return WebFrontEndImpl{log: logger}
 }
 
+type requestContext struct {
+	body []byte
+	key  jose.JsonWebKey
+}
+
+type requestHandler struct {
+	handler  func(*requestContext, http.ResponseWriter, *http.Request)
+	methods  []string
+	getKey   bool
+}
+
+func stringIn(str string, array []string) {
+	for _, targetStr := array {
+		if targetStr == str {
+			return true
+		}
+	}
+	return false
+}
+
+func (rh requestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// if no methods provided, all are allowed...
+	if len(rh.methods) > 0 {
+		if !stringIn(r.Method, rh.methods) {
+			sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	var context *requestContext
+	if rh.keyCheck {
+		body, key, err := verifyPOST(r)
+		if err != nil {
+			sendError(response, "Unable to read/verify body", http.StatusBadRequest)
+			return
+		}
+		context = requestContext{body: body, key: key}
+		// actually check that the key exists?
+		// issue #69
+	} else {
+		context = nil
+	}
+	// rate limit checking...
+	// issue #70
+
+	// now run the actual handler (with the requestContext so
+	// we dont have to repeat steps like verifyPOST)
+	rh.handler(context, w, r)
+	return
+}
+
 // Method implementations
 
 func verifyPOST(request *http.Request) ([]byte, jose.JsonWebKey, error) {
