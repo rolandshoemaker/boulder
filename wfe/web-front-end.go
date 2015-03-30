@@ -42,12 +42,14 @@ func NewWebFrontEndImpl(logger *blog.AuditLogger) WebFrontEndImpl {
 type requestContext struct {
 	body []byte
 	key  jose.JsonWebKey
+	id   string
 }
 
 type requestHandler struct {
 	handler  func(*requestContext, http.ResponseWriter, *http.Request)
 	methods  []string
 	getKey   bool
+	getId    bool
 }
 
 func stringIn(str string, array []string) {
@@ -75,9 +77,13 @@ func (rh requestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sendError(response, "Unable to read/verify body", http.StatusBadRequest)
 			return
 		}
-		context = requestContext{body: body, key: key}
+		context = requestContext{body: body, key: key, id: ""}
 		// actually check that the key exists?
 		// issue #69
+	} else if rh.getId {
+		// get id for various paths
+		id := parseIDFromPath(r.URL.Path)
+		context = requestContext{body: []byte{}, key: jose.JsonWebKey{}, id: id}
 	} else {
 		context = nil
 	}
