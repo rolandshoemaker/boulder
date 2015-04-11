@@ -9,6 +9,9 @@ import (
 	"errors"
 	"log"
 	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/letsencrypt/boulder/Godeps/_workspace/src/github.com/streadway/amqp"
 	"github.com/letsencrypt/boulder/core"
@@ -134,6 +137,26 @@ func (rpc *AmqpRPCServer) Start() (err error) {
 	if err != nil {
 		return
 	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt)
+
+	go func() {
+		<-sigChan
+		log.Printf("  [!] SIGTERM/SIGINT recieved, stopping new deliveries and processing remaining messages")
+		// Lets clean things uuup, stop delivers to the consumer
+		// i'm not sure if this blocks itself, or if we need to block
+		// until len(msgs) == 0...
+		rpc.channel.Cancel(rpc.serverQueue, false)
+		log.Printf("  [!] Finished processing messages, exiting...")
+
+		// close channel cleanly
+		rpc.channel.Close()
+
+		// success i guess?
+		os.Exit(0)
+	}()
 
 	go func() {
 		for msg := range msgs {
