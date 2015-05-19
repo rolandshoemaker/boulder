@@ -153,7 +153,6 @@ func assertAuthzEqual(t *testing.T, a1, a2 core.Authorization) {
 
 func TestNewAuthorization(t *testing.T) {
 	_, _, sa, ra := initAuthorities(t)
-
 	authz, err := ra.NewAuthorization(AuthzRequest, 1)
 	test.AssertNotError(t, err, "NewAuthorization failed")
 
