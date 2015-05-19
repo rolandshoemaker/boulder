@@ -56,6 +56,9 @@ func TestAddRegistration(t *testing.T) {
 	test.AssertNotError(t, err, "Couldn't create new registration")
 	test.Assert(t, reg.ID != 0, "ID shouldn't be 0")
 
+	_, err = sa.GetRegistration(0)
+	test.AssertError(t, err, "Registration object for ID 0 was returned")
+
 	dbReg, err := sa.GetRegistration(reg.ID)
 	test.AssertNotError(t, err, fmt.Sprintf("Couldn't get registration with ID %v", reg.ID))
 
