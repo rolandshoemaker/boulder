@@ -134,6 +134,9 @@ func assertAuthzEqual(t *testing.T, a1, a2 core.Authorization) {
 func TestNewAuthorization(t *testing.T) {
 	_, _, sa, ra := initAuthorities(t)
 
+	_, err := ra.NewAuthorization(AuthzRequest, 0)
+	test.AssertError(t, err, "registrationID cannot be 0")
+
 	authz, err := ra.NewAuthorization(AuthzRequest, 1)
 	test.AssertNotError(t, err, "NewAuthorization failed")
 
@@ -216,6 +219,8 @@ func TestOnValidationUpdate(t *testing.T) {
 
 func TestNewCertificate(t *testing.T) {
 	_, _, sa, ra := initAuthorities(t)
+
+
 	sa.NewRegistration(core.Registration{Key: AccountKey})
 	AuthzFinal.RegistrationID = 1
 	AuthzFinal.ID, _ = sa.NewPendingAuthorization()
@@ -235,6 +240,9 @@ func TestNewCertificate(t *testing.T) {
 		CSR:            ExampleCSR,
 		Authorizations: []core.AcmeURL{core.AcmeURL(*url1), core.AcmeURL(*url2)},
 	}
+
+	_, err := ra.NewCertificate(certRequest, 0)
+	test.AssertError(t, err, "registrationID cannot be 0")
 
 	cert, err := ra.NewCertificate(certRequest, 1)
 	test.AssertNotError(t, err, "Failed to issue certificate")
