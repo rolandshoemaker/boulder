@@ -59,11 +59,6 @@ func (ra *RegistrationAuthorityImpl) NewRegistration(init core.Registration, key
 }
 
 func (ra *RegistrationAuthorityImpl) NewAuthorization(request core.Authorization, regID int64) (authz core.Authorization, err error) {
-	if regID == 0 {
-		err = fmt.Errorf("Registration ID cannot be 0")
-		return authz, err
-	}
-
 	identifier := request.Identifier
 
 	// Check that the identifier is present and appropriate
