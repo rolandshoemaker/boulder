@@ -25,6 +25,10 @@ services:
   - rabbitmq
   - mysql
 
+env:
+  - MERGE=0
+  - MERGE=1
+
 matrix:
   fast_finish: true
 
@@ -62,4 +66,5 @@ env:
 
 script:
   - make -j4 # Travis has 2 cores per build instance
+  - if [ $MERGE -eq 1 ]; then git merge master; fi
   - bash test.sh
