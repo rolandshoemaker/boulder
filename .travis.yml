@@ -26,7 +26,7 @@ services:
   - mysql
 
 env:
-  - MERGE=0
+  - LETSENCRYPT_PATH=/tmp/letsencrypt
   - MERGE=1
 
 matrix:
@@ -35,7 +35,7 @@ matrix:
 # Only build pushes to the master branch (and PRs)
 # branches:
 #   only:
-#     - master 
+#     - master
 
 before_install:
   # Github-PR-Status secret
@@ -61,8 +61,6 @@ before_install:
   - travis_retry ./venv/bin/pip install -r requirements.txt -e acme -e . -e letsencrypt-apache -e letsencrypt-nginx
   - "cd -"
 
-env:
-  - LETSENCRYPT_PATH=/tmp/letsencrypt
 
 script:
   - make -j4 # Travis has 2 cores per build instance
