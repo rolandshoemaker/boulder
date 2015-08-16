@@ -35,7 +35,7 @@ matrix:
 # Only build pushes to the master branch (and PRs)
 # branches:
 #   only:
-#     - master
+#     - master 
 
 before_install:
   # Github-PR-Status secret
